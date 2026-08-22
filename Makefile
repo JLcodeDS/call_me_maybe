@@ -1,6 +1,5 @@
 PYTHON = python3 
 
-
 install: pip install flake8 mypy pydantic
 
 all: install run
@@ -13,6 +12,6 @@ lint: flake8 . mypy . --warn-return-any --warn-unused-ignores --ignore-missing-i
 
 lint-strict: flake8 . mypy . --strict
 
-run: $(PYTHON)
+run: uv run $(PYTHON) -m src
 
 debug: 
