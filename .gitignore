@@ -1,0 +1,51 @@
+# Python Runtime
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Project-specific caches & workspace configurations
+.python-version
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Package Manager: uv & pip
+.uv/
+.venv/
+venv/
+ENV/
+env/
+
+# Data and Artifact outputs
+*.json
+!function_calling_tests.json
+!functions_definition.json
+!output_format.json
+*.log
+
+# OS specifics
+.DS_Store
+Thumbs.db

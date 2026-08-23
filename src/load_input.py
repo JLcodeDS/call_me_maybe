@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ValidationError, model_validator, Field
+from pydantic import BaseModel, ValidationError, Field
 from enum import Enum
 import json
 from sys import argv
