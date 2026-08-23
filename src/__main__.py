@@ -8,7 +8,7 @@ def main() -> None:
     print(data.prompt_data)
     print(data.function_data)
     gen = GenerateOutput("What is the sum of 2 and 3?")
-    gen.run_model()
+    gen.run_model(data.function_data)
 
 
 if __name__ == "__main__":
