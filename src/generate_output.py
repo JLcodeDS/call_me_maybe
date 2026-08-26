@@ -1,5 +1,8 @@
 from llm_sdk import Small_LLM_Model
 import numpy as np
+from .data_models import AllowedTypes
+from pydantic import BaseModel, Field
+from enum import Enum
 
 
 class GenerateOutput:
@@ -26,3 +29,5 @@ class GenerateOutput:
 
     def softmax(self, raw_logits: list[float]) -> list[float]:
         pass
+
+

@@ -1,27 +1,9 @@
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, ValidationError, Field, create_model
+from typing import Literal, Union
 from enum import Enum
 import json
 from sys import argv
-
-
-class TypesEnum(Enum):
-    NUMBER = "number"
-    STRING = "string"
-
-
-class AllowedTypes(BaseModel):
-    type: TypesEnum
-
-
-class FunctionDefinitions(BaseModel):
-    name: str = Field(max_length=100, min_length=3)
-    description: str = Field(max_length=500)
-    parameters: dict[str, AllowedTypes]
-    returns: AllowedTypes
-
-
-class FunctionCall(BaseModel):
-    prompt: str = Field(min_length=5, max_length=500)
+from data_models import FunctionCall, FunctionDefinitions
 
 
 class LoadData:
@@ -100,3 +82,5 @@ class LoadData:
         self._read_cli_params()
         self._load_json()
         self._validate_data()
+
+
