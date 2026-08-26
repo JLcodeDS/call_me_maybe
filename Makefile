@@ -1,6 +1,8 @@
 PYTHON = python3 
 
-install: pip install flake8 mypy pydantic
+install: 
+	uv sync
+	uv pip install ./llm_sdk
 
 all: install run
 
@@ -12,6 +14,8 @@ lint: flake8 . mypy . --warn-return-any --warn-unused-ignores --ignore-missing-i
 
 lint-strict: flake8 . mypy . --strict
 
-run: uv run $(PYTHON) -m src
+exec: uv run $(PYTHON) -m src
 
 debug: 
+
+.PHONY: all clean fclean lint lint-strict run debug
