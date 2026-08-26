@@ -1,9 +1,7 @@
-from pydantic import BaseModel, ValidationError, Field, create_model
-from typing import Literal, Union
-from enum import Enum
+from pydantic import ValidationError
 import json
 from sys import argv
-from data_models import FunctionCall, FunctionDefinitions
+from .data_models import FunctionDefinitions, PromptSchema
 
 
 class LoadData:
@@ -59,7 +57,7 @@ class LoadData:
         errors_lst: list = []
         for prompt in self.prompt_data:
             try:
-                FunctionCall.model_validate(prompt)
+                PromptSchema.model_validate(prompt)
             except ValidationError as e:
                 for error in e.errors():
                     loc = " -> ".join(str(x) for x in error["loc"])
@@ -82,5 +80,3 @@ class LoadData:
         self._read_cli_params()
         self._load_json()
         self._validate_data()
-
-
