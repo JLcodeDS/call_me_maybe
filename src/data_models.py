@@ -38,6 +38,7 @@ class TokenTree:
 
     def get_next_allowed_tokens(self, tokens: list[int]):
         for 
+        ## go down branches in a row
 
 
 """

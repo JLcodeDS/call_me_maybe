@@ -60,7 +60,7 @@ class ModelInterface:
         }
 
     def init_fn_name_tree(self, fn_tokens: list[list[int]]) -> None:
-        
+        ## Fix tree first
 
     def get_function_name_token_ids(self) -> list[list[int]]:
         function_token_ids = [
