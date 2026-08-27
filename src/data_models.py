@@ -23,6 +23,23 @@ class PromptSchema(BaseModel):
     prompt: str = Field(min_length=5, max_length=500)
 
 
+class TreeNode:
+    def __init__(self):
+        self.children = {}
+        self.end = False
+
+
+class TokenTree:
+    def __init__(self):
+        self.first_node = TreeNode()
+
+    def add_token_branch(self, tokens: list[int]):
+
+
+    def get_next_allowed_tokens(self, tokens: list[int]):
+        for 
+
+
 """
 Make dict of pydantic models to index after having found the
 correct function name !!
