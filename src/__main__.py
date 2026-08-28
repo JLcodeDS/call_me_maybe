@@ -1,22 +1,21 @@
 from .load_input import LoadData
 from .data_models import JSONOutput
-from .generate_output import ModelInterface, ConstrainModel
-import numpy as np
+from .generate_output import CleanInput, CreateTrie, RunModel
+from llm_sdk import Small_LLM_Model  # type:ignore
 
 
 def main() -> None:
     data = LoadData()
     data.load_data()
-    constraints = ConstrainModel(
-        data.function_data, JSONOutput.model_json_schema())
-    model = ModelInterface(constraints)
-    outputs: list[str] = []
-    for prompt in data.prompt_data:
-        outputs.append(model.get_answer_to_prompt(prompt["prompt"]))
-    #out = model.get_answer_to_prompt(data.prompt_data[0])
-    logits = list(np.arange(0, 10000, 0.5))
-    fun_id = [x for sub in model.get_function_name_token_ids() for x in sub]
-    logits = model.mask_logits(logits, fun_id)
+    model = Small_LLM_Model()
+    clean = CleanInput(data.function_data, data.prompt_data)
+    output_schema = JSONOutput.model_json_schema()
+    trie_engine = CreateTrie(data.function_data, data.prompt_data,
+                             model, output_schema)
+    prompts = clean.prompts
+    run = RunModel(prompts[0], model, trie_engine.Trie, trie_engine)
+    output = run.run_constrained()
+    print(output)
 
 if __name__ == "__main__":
     # try:

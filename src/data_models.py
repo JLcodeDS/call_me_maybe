@@ -23,22 +23,31 @@ class PromptSchema(BaseModel):
     prompt: str = Field(min_length=5, max_length=500)
 
 
-class TreeNode:
+class TrieNode:
     def __init__(self):
         self.children = {}
-        self.end = False
+        self.end_word = False
 
 
-class TokenTree:
+class TokenTrie:
     def __init__(self):
-        self.first_node = TreeNode()
+        self.first_node = TrieNode()
 
-    def add_token_branch(self, tokens: list[int]):
+    def add_token_branch(self, tokens: list[int]) -> None:
+        current_node = self.first_node
+        for t in tokens:
+            if t not in self.first_node.children:
+                current_node.children[t] = TrieNode()
+            current_node = current_node.children[t]
 
-
-    def get_next_allowed_tokens(self, tokens: list[int]):
-        for 
-        ## go down branches in a row
+    def get_next_allowed_tokens(self, tokens: list[int]) -> list[int] | None:
+        current_node = self.first_node
+        for t in tokens:
+            current_node = current_node.children[t]
+        if current_node.end_word:
+            return None
+        else:
+            return current_node.children
 
 
 """
