@@ -39,6 +39,7 @@ class TokenTrie:
             if t not in self.first_node.children:
                 current_node.children[t] = TrieNode()
             current_node = current_node.children[t]
+        current_node.end_word = True
 
     def get_next_allowed_tokens(self, tokens: list[int]) -> list[int] | None:
         current_node = self.first_node

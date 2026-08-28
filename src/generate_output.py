@@ -2,7 +2,6 @@ from llm_sdk import Small_LLM_Model
 import numpy as np
 from typing import Any
 from datetime import datetime
-import json
 from .data_models import TokenTrie
 
 
@@ -34,6 +33,7 @@ class CreateTrie:
         self.prompts = self.cln.prompts
         self.Trie = TokenTrie()
         self.model = model
+        self.insert_strs()
 
     def get_wrapped_prompt(self, prompt: str) -> str:
         return (f"Function definitions: {self.function_data}." +
@@ -42,20 +42,22 @@ class CreateTrie:
                 "the following prompt in the response output" +
                 f" format and nothing more:\n{prompt}\n")
 
-    def make_output_str(self, prompt, func) -> str:
+    def make_output_encode(self, prompt, func) -> str:
         wrapped = self.get_wrapped_prompt(prompt)
-        return (wrapped + '\n{\n"prompt": "' + prompt + '",\n"name": "' +
-                func + '",\n"parameters": ')
+        wrap_encode = self.model.encode(wrapped)[0].tolist()
+        resp_encode = self.model.encode(
+            '\n{\n"prompt": "' + prompt + '",\n"name": "' +
+            func + '",\n"parameters": '
+        )[0].tolist()
+        wrap_encode.extend(resp_encode)
+        return wrap_encode
 
     def insert_strs(self):
         for prompt in self.prompts:
-            self.Trie.add_token_branch(
-                [
-                    self.model.encode(
-                        self.make_output_str(prompt, func)
-                        )[0].tolist() for func in self.function_names
-                ]
-            )
+            for func in self.function_names:
+                self.Trie.add_token_branch(
+                            self.make_output_encode(prompt, func)
+                            )
 
 
 class RunModel:
@@ -69,19 +71,21 @@ class RunModel:
     def run_constrained(self) -> str:
         start = datetime.now()
         wrapped_prompt = self.trie_engine.get_wrapped_prompt(self.prompt)
-        encode = self.model.encode(wrapped_prompt)[0].tolist()
-        response_id = len(wrapped_prompt)
+        encoded_prompt = self.model.encode(wrapped_prompt)[0].tolist()
+        response_id = len(encoded_prompt)
         while (True):
-            logits = self.model.get_logits_from_input_ids(encode)
-            allowed_next_tokens = self.trie.get_next_allowed_tokens(encode)
+            print(self.model.decode(encoded_prompt))
+            logits = self.model.get_logits_from_input_ids(encoded_prompt)
+            allowed_next_tokens = self.trie.get_next_allowed_tokens(
+                encoded_prompt)
             if allowed_next_tokens is None:
                 break
             max_logit_id = np.argmax(
                 self.mask_logits(logits, allowed_next_tokens)).item()
-            encode.append(max_logit_id)
+            encoded_prompt.append(max_logit_id)
         end = datetime.now()
         print(f"Time taken to find func name: {(end - start)}")
-        return self.model.decode(encode)[response_id:]
+        return self.model.decode(encoded_prompt)
 
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
