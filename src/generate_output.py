@@ -1,8 +1,10 @@
 from llm_sdk import Small_LLM_Model
 import numpy as np
-from typing import Any
+from typing import Any, Pattern
 from datetime import datetime
 from .data_models import TokenTrie
+import re
+import json
 
 
 #class CleanInput:
@@ -42,15 +44,58 @@ class CreateFnTrie:
         return [fn["name"] for fn in self.function_data]
 
 
+class CompileParamMask:
+    def __init__(self, function_data: list[dict[str, Any]],
+                 model: Small_LLM_Model):
+        self.function_data = function_data
+        self.json_to_regex = {
+            "string": re.compile(r'^"[^"\\]*(\\.[^"\\]*)*"([,}])?$'),
+            "number": re.compile(r'^-?(0|[1-9]\d*)(\.\d+)?([,}])?$'),
+            "boolean": re.compile(r'^(true|false)([,}])?$'),
+            "null": re.compile(r'^null([,}])?$'),
+            "integer": re.compile(r'^-?(0|[1-9]\d*)([,}])?$'),
+            "array": re.compile(r'^\[\s*[^\[\]]*\s*\]([,}])?$'),
+            "object": re.compile(r'^\{\s*[^\{\}]*\s*\}([,}])?$')
+        }
+
+        self.save_fn_param_types()
+        self.model = model
+    
+    def save_type_tokens(self) -> None:
+        self.type_to_token_mask = {
+            k: self.get_type_tokens(k) for k in self.json_to_regex
+        }
+
+    def save_fn_param_types(self) -> None:
+        self.fn_param_types = {
+            fn["name"]: {
+                k: k["type"] for k in fn["parameters"]
+            } for fn in self.function_data
+        }
+
+    def get_fn_param_tokens(self, fn: str, param: str) -> list[int]:
+        return self.type_to_token_mask[
+            self.fn_param_types[fn][param]
+        ]
+
+    def get_type_tokens(self, param_type: str) -> list[int]:
+        with open(self.model.get_path_to_vocab_file()) as vocab:
+            vocab_json = json.load(vocab)
+        r = self.json_to_regex[param_type]
+        token_matches = [k for k, v in vocab_json.items() if r.match(v)]
+        return token_matches
+
+
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
                  trie: TokenTrie, output_schema: dict[str, Any],
-                 function_data: dict[str, Any]):
+                 function_data: dict[str, Any], regex_map: CompileParamMask):
         self.model = model
         self.trie = trie
         self.prompt = prompt
         self.output_schema = output_schema
         self.function_data = function_data
+        self.regex_map = regex_map
 
     def run_constrained(self) -> str:
         wrapped_prompt = self.get_wrapped_prompt(self.prompt)
@@ -68,7 +113,26 @@ class RunModel:
                 self.mask_logits(logits, allowed_next_tokens)).item()
             encoded_prompt.append(max_logit_id)
             encoded_fn.append(max_logit_id)
-        return self.model.decode(encoded_prompt)[response_id:]
+        prompt_w_fn_name = self.model.decode(encoded_prompt)
+        fn_name = prompt_w_fn_name[response_id:]
+        params = self.regex_map.fn_param_types[fn_name]
+        prompt_w_fn_name += '",\n"parameters": {'
+        for p, p_type in params.items():
+            prompt_w_fn_name += '"' + p + '": '
+            param_id = len(prompt_w_fn_name)
+            encoded_response = self.model.encode(prompt_w_fn_name)[0].tolist()
+            encoded_param = []
+            while(WHAT):
+                allowed_tokens = self.regex_map.get_fn_param_tokens(fn_name, p)
+                logits = self.model.get_logits_from_input_ids(encoded_response)
+                max_logit_id = np.argmax(
+                self.mask_logits(logits, allowed_tokens)).item()
+                encoded_param.append(max_logit_id)
+                encoded_response.append(max_logit_id)
+            prompt_w_fn_name += self.model.decode(encoded_param)
+            # think of condition tomorrow?
+            ### how do I stop it??? ffs
+        return prompt_w_fn_name[response_id:]
 
     def get_wrapped_prompt(self, prompt: str) -> str:
         return (f"Function definitions: {self.function_data}." +
