@@ -43,12 +43,14 @@ class TokenTrie:
 
     def get_next_allowed_tokens(self, tokens: list[int]) -> list[int] | None:
         current_node = self.first_node
+        if not len(tokens):
+            return list(current_node.children.keys())
         for t in tokens:
             current_node = current_node.children[t]
         if current_node.end_word:
             return None
         else:
-            return current_node.children
+            return list(current_node.children.keys())
 
 
 """

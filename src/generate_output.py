@@ -35,16 +35,17 @@ class CreateFnTrie:
     def insert_strs(self):
         for func in self.function_names:
             self.Trie.add_token_branch(
-                        self.make_encode_encode(func)
+                        self.make_encode(func)
                         )
-    
+
     def get_fn_names(self) -> list[str]:
         return [fn["name"] for fn in self.function_data]
 
 
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
-                 trie: TokenTrie, output_schema: dict[str, Any], function_data: dict[str, Any]):
+                 trie: TokenTrie, output_schema: dict[str, Any],
+                 function_data: dict[str, Any]):
         self.model = model
         self.trie = trie
         self.prompt = prompt
@@ -52,10 +53,10 @@ class RunModel:
         self.function_data = function_data
 
     def run_constrained(self) -> str:
-        start = datetime.now()
         wrapped_prompt = self.get_wrapped_prompt(self.prompt)
+        response_id = len(wrapped_prompt)
+        wrapped_prompt += '{\n"prompt": "' + self.prompt + '",\n"name": "'
         encoded_prompt = self.model.encode(wrapped_prompt)[0].tolist()
-        response_id = len(encoded_prompt)
         encoded_fn: list[int] = []
         while (True):
             logits = self.model.get_logits_from_input_ids(encoded_prompt)
@@ -67,17 +68,14 @@ class RunModel:
                 self.mask_logits(logits, allowed_next_tokens)).item()
             encoded_prompt.append(max_logit_id)
             encoded_fn.append(max_logit_id)
-        end = datetime.now()
-        print(f"Time taken to find func name: {(end - start)}")
-        return self.model.decode(encoded_prompt[response_id:])
-    
+        return self.model.decode(encoded_prompt)[response_id:]
+
     def get_wrapped_prompt(self, prompt: str) -> str:
         return (f"Function definitions: {self.function_data}." +
                 f"Response output format: {self.output_schema}" +
                 "Use the function definitions to answer" +
                 "the following prompt in the response output" +
-                f" format and nothing more:\n{prompt}\n" +
-                '{\n"prompt": "' + prompt + '",\n"name": "')
+                f" format and nothing more:\n{prompt}\n")
 
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
