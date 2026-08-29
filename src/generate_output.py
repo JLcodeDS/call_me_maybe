@@ -5,87 +5,79 @@ from datetime import datetime
 from .data_models import TokenTrie
 
 
-class CleanInput:
+#class CleanInput:
+#    def __init__(self, function_data: dict[str, Any],
+#                 prompt_data: dict[str, str]) -> None:
+#        self.function_data = function_data
+#        self.prompt_data = prompt_data
+#        self.fn_names = self.get_fn_names()
+#        self.prompts = self.get_prompts()
+
+#    def get_prompts(self) -> list[str]:
+#        return [prompt["prompt"] for prompt in self.prompt_data]
+
+#    def get_fn_names(self) -> list[str]:
+#        return [fn["name"] for fn in self.function_data]
+
+
+class CreateFnTrie:
     def __init__(self, function_data: dict[str, Any],
-                 prompt_data: dict[str, str]) -> None:
+                 model: Small_LLM_Model) -> None:
         self.function_data = function_data
-        self.prompt_data = prompt_data
-        self.fn_names = self.get_fn_names()
-        self.prompts = self.get_prompts()
-
-    def get_prompts(self) -> list[str]:
-        return [prompt["prompt"] for prompt in self.prompt_data]
-
-    def get_fn_names(self) -> list[str]:
-        return [fn["name"] for fn in self.function_data]
-
-
-class CreateTrie:
-    def __init__(self, function_data: dict[str, Any],
-                 prompt_data: dict[str, str],
-                 model: Small_LLM_Model,
-                 output_schema: dict[str, Any]) -> None:
-        self.function_data = function_data
-        self.prompts_raw = prompt_data
-        self.output_schema = output_schema
-        self.cln = CleanInput(function_data, prompt_data)
-        self.function_names = self.cln.fn_names
-        self.prompts = self.cln.prompts
+        self.function_names = self.get_fn_names()
         self.Trie = TokenTrie()
         self.model = model
         self.insert_strs()
 
-    def get_wrapped_prompt(self, prompt: str) -> str:
-        return (f"Function definitions: {self.function_data}." +
-                f"Response output format: {self.output_schema}" +
-                "Use the function definitions to answer" +
-                "the following prompt in the response output" +
-                f" format and nothing more:\n{prompt}\n")
-
-    def make_output_encode(self, prompt, func) -> str:
-        wrapped = self.get_wrapped_prompt(prompt)
-        wrap_encode = self.model.encode(wrapped)[0].tolist()
-        resp_encode = self.model.encode(
-            '\n{\n"prompt": "' + prompt + '",\n"name": "' +
-            func + '",\n"parameters": '
-        )[0].tolist()
-        wrap_encode.extend(resp_encode)
-        return wrap_encode
+    def make_encode(self, func) -> str:
+        return self.model.encode(func)[0].tolist()
 
     def insert_strs(self):
-        for prompt in self.prompts:
-            for func in self.function_names:
-                self.Trie.add_token_branch(
-                            self.make_output_encode(prompt, func)
-                            )
+        for func in self.function_names:
+            self.Trie.add_token_branch(
+                        self.make_encode_encode(func)
+                        )
+    
+    def get_fn_names(self) -> list[str]:
+        return [fn["name"] for fn in self.function_data]
 
 
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
-                 trie: TokenTrie, trie_engine: CreateTrie):
+                 trie: TokenTrie, output_schema: dict[str, Any], function_data: dict[str, Any]):
         self.model = model
         self.trie = trie
         self.prompt = prompt
-        self.trie_engine = trie_engine
+        self.output_schema = output_schema
+        self.function_data = function_data
 
     def run_constrained(self) -> str:
         start = datetime.now()
-        wrapped_prompt = self.trie_engine.get_wrapped_prompt(self.prompt)
+        wrapped_prompt = self.get_wrapped_prompt(self.prompt)
         encoded_prompt = self.model.encode(wrapped_prompt)[0].tolist()
         response_id = len(encoded_prompt)
+        encoded_fn: list[int] = []
         while (True):
-            print(self.model.decode(encoded_prompt))
             logits = self.model.get_logits_from_input_ids(encoded_prompt)
             allowed_next_tokens = self.trie.get_next_allowed_tokens(
-                encoded_prompt)
+                encoded_fn)
             if allowed_next_tokens is None:
                 break
             max_logit_id = np.argmax(
                 self.mask_logits(logits, allowed_next_tokens)).item()
             encoded_prompt.append(max_logit_id)
+            encoded_fn.append(max_logit_id)
         end = datetime.now()
         print(f"Time taken to find func name: {(end - start)}")
-        return self.model.decode(encoded_prompt)
+        return self.model.decode(encoded_prompt[response_id:])
+    
+    def get_wrapped_prompt(self, prompt: str) -> str:
+        return (f"Function definitions: {self.function_data}." +
+                f"Response output format: {self.output_schema}" +
+                "Use the function definitions to answer" +
+                "the following prompt in the response output" +
+                f" format and nothing more:\n{prompt}\n" +
+                '{\n"prompt": "' + prompt + '",\n"name": "')
 
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
