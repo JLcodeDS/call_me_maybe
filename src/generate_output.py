@@ -1,25 +1,10 @@
 from llm_sdk import Small_LLM_Model
 import numpy as np
 from typing import Any, Pattern
-from datetime import datetime
+#  from datetime import datetime
 from .data_models import TokenTrie
 import re
 import json
-
-
-#class CleanInput:
-#    def __init__(self, function_data: dict[str, Any],
-#                 prompt_data: dict[str, str]) -> None:
-#        self.function_data = function_data
-#        self.prompt_data = prompt_data
-#        self.fn_names = self.get_fn_names()
-#        self.prompts = self.get_prompts()
-
-#    def get_prompts(self) -> list[str]:
-#        return [prompt["prompt"] for prompt in self.prompt_data]
-
-#    def get_fn_names(self) -> list[str]:
-#        return [fn["name"] for fn in self.function_data]
 
 
 class CreateFnTrie:
@@ -49,18 +34,30 @@ class CompileParamMask:
                  model: Small_LLM_Model):
         self.function_data = function_data
         self.json_to_regex = {
-            "string": re.compile(r'^"[^"\\]*(\\.[^"\\]*)*"([,}])?$'),
-            "number": re.compile(r'^-?(0|[1-9]\d*)(\.\d+)?([,}])?$'),
-            "boolean": re.compile(r'^(true|false)([,}])?$'),
+            "string": re.compile(r'(^")|((^\})",)'),
+            "number": re.compile(r'-?\d+(?:,\s)?'),
+            "boolean": re.compile(r'^(true|false)(,)?$'),
             "null": re.compile(r'^null([,}])?$'),
-            "integer": re.compile(r'^-?(0|[1-9]\d*)([,}])?$'),
-            "array": re.compile(r'^\[\s*[^\[\]]*\s*\]([,}])?$'),
-            "object": re.compile(r'^\{\s*[^\{\}]*\s*\}([,}])?$')
+            "integer": re.compile(r'^-?(0|[1-9]\d*)(,)?$'),
+            "array": re.compile(r'^\[\s*[^\[\]]*\s*\](,)?$'),
+            "object": re.compile(r'^\{\s*[^\{\}]*\s*\}(,)?$')
+        }
+        
+
+        self.type_eof = {
+            "string": re.compile(r'",'),
+            "number": re.compile(r'\d,$'),
+            "boolean": re.compile(r'(?:true|false)\s*,?\s*$'),
+            "null": re.compile(r'null\s*,?\s*$'),
+            "integer": re.compile(r'\d\s*,?\s*$'),
+            "array": re.compile(r']\s*,?\s*$'),
+            "object": re.compile(r'}\s*,?\s*$')
         }
 
         self.save_fn_param_types()
         self.model = model
-    
+        self.save_type_tokens()
+
     def save_type_tokens(self) -> None:
         self.type_to_token_mask = {
             k: self.get_type_tokens(k) for k in self.json_to_regex
@@ -69,7 +66,7 @@ class CompileParamMask:
     def save_fn_param_types(self) -> None:
         self.fn_param_types = {
             fn["name"]: {
-                k: k["type"] for k in fn["parameters"]
+                k: v["type"] for k, v in fn["parameters"].items()
             } for fn in self.function_data
         }
 
@@ -82,7 +79,8 @@ class CompileParamMask:
         with open(self.model.get_path_to_vocab_file()) as vocab:
             vocab_json = json.load(vocab)
         r = self.json_to_regex[param_type]
-        token_matches = [k for k, v in vocab_json.items() if r.match(v)]
+        token_matches = [v for k, v in vocab_json.items(
+            ) if r.match(k.replace("Ġ", " "))]
         return token_matches
 
 
@@ -100,10 +98,11 @@ class RunModel:
     def run_constrained(self) -> str:
         wrapped_prompt = self.get_wrapped_prompt(self.prompt)
         response_id = len(wrapped_prompt)
-        wrapped_prompt += '{\n"prompt": "' + self.prompt + '",\n"name": "'
+        wrapped_prompt += '{"prompt": "' + self.prompt + '", "name": "'
+        fn_id = len(wrapped_prompt)
         encoded_prompt = self.model.encode(wrapped_prompt)[0].tolist()
         encoded_fn: list[int] = []
-        while (True):
+        while True:
             logits = self.model.get_logits_from_input_ids(encoded_prompt)
             allowed_next_tokens = self.trie.get_next_allowed_tokens(
                 encoded_fn)
@@ -114,29 +113,31 @@ class RunModel:
             encoded_prompt.append(max_logit_id)
             encoded_fn.append(max_logit_id)
         prompt_w_fn_name = self.model.decode(encoded_prompt)
-        fn_name = prompt_w_fn_name[response_id:]
+        fn_name = prompt_w_fn_name[fn_id:]
         params = self.regex_map.fn_param_types[fn_name]
-        prompt_w_fn_name += '",\n"parameters": {'
+        prompt_w_fn_name += '", "parameters": {'
         for p, p_type in params.items():
             prompt_w_fn_name += '"' + p + '": '
-            param_id = len(prompt_w_fn_name)
             encoded_response = self.model.encode(prompt_w_fn_name)[0].tolist()
             encoded_param = []
-            while(WHAT):
+            decoded_param = ""
+            while not self.regex_map.type_eof[p_type].match(decoded_param):
                 allowed_tokens = self.regex_map.get_fn_param_tokens(fn_name, p)
                 logits = self.model.get_logits_from_input_ids(encoded_response)
                 max_logit_id = np.argmax(
-                self.mask_logits(logits, allowed_tokens)).item()
+                    self.mask_logits(logits, allowed_tokens)).item()
                 encoded_param.append(max_logit_id)
                 encoded_response.append(max_logit_id)
+                decoded_param = self.model.decode(encoded_param)
+                print(self.model.decode(encoded_response)[response_id:])
             prompt_w_fn_name += self.model.decode(encoded_param)
-            # think of condition tomorrow?
-            ### how do I stop it??? ffs
+        prompt_w_fn_name += '}}'
         return prompt_w_fn_name[response_id:]
 
     def get_wrapped_prompt(self, prompt: str) -> str:
         return (f"Function definitions: {self.function_data}." +
                 f"Response output format: {self.output_schema}" +
+                "Always end the parameter values with a comma ','."
                 "Use the function definitions to answer" +
                 "the following prompt in the response output" +
                 f" format and nothing more:\n{prompt}\n")
