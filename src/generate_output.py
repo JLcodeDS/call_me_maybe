@@ -1,6 +1,6 @@
 from llm_sdk import Small_LLM_Model
 import numpy as np
-from typing import Any, Pattern
+from typing import Any
 #  from datetime import datetime
 from .data_models import TokenTrie
 import re
@@ -42,8 +42,7 @@ class CompileParamMask:
             "array": re.compile(r'^\[\s*[^\[\]]*\s*\](,)?$'),
             "object": re.compile(r'^\{\s*[^\{\}]*\s*\}(,)?$')
         }
-        
-
+#  Check if all this shit is even the good method (look into fsm & pushdown etc advantages and all)
         self.type_eof = {
             "string": re.compile(r'",'),
             "number": re.compile(r'\d,$'),
