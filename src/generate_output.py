@@ -80,11 +80,11 @@ class RunModel:
         self.clean_fn_data = clean_fn_data
         self.regex_map = regex_map
         self.parameters: dict[str, Any] = {}
-
+    ### APPEND / EXTEND ENCODED TOKENS CONTINUOUSLY TO KEEP IT FLOWING INTACT
     def find_fn_name(self) -> None:
         fn_prompt = self.get_wrapped_prompt()
         self.response_id = len(fn_prompt)
-        fn_prompt += '{"prompt": "' + self.prompt + ', "name": "'
+        fn_prompt += '{"prompt": "' + self.prompt + '", "name": "'
         encoded_prompt = self.model.encode(fn_prompt)[0].tolist()
         encoded_fn: list[int] = []
         while True:
