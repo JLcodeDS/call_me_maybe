@@ -1,57 +1,18 @@
-from llm_sdk import Small_LLM_Model
+from llm_sdk import Small_LLM_Model  # type: ignore
 import numpy as np
 from typing import Any
 #  from datetime import datetime
 from .data_models import TokenTrie
+from .data_preparation import CreateTries, PrepareFnData
 import re
 import json
-
+from .fsms import FSMDispatch
 ### Change structure ###
 ## Query first function name through Trie and save
 ## Then Query params and save
 ## Finally Generate the actual JSON output with string and that
 
 # Pre sort tokens will be the longest part 
-
-
-class PrepareFnData:
-    def __init__(self, function_data: list[dict[str, Any]]):
-        self.function_data = function_data
-        self.fn_names_defs = self.get_fn_names_defs()
-        self.fn_params = self.get_fn_params()
-    
-    def get_fn_names_defs(self) -> list[dict[str, str]]:
-        return [
-            {"name": fn["name"], "definition": fn["definition"]} for fn in self.function_data
-            ]
-    
-    def get_fn_params(self) -> dict[str, Any]:
-        return {
-            fn["name"]: {
-                param: param["type"] for param in fn["parameters"]
-            } for fn in self.function_data
-        }
-
-class CreateFnTrie:
-    def __init__(self, function_data: list[dict[str, Any]],
-                 model: Small_LLM_Model) -> None:
-        self.function_data = function_data
-        self.function_names = self.get_fn_names()
-        self.Trie = TokenTrie()
-        self.model = model
-        self.insert_strs()
-
-    def make_encode(self, func) -> str:
-        return self.model.encode(func)[0].tolist()
-
-    def insert_strs(self):
-        for func in self.function_names:
-            self.Trie.add_token_branch(
-                        self.make_encode(func)
-                        )
-
-    def get_fn_names(self) -> list[str]:
-        return [fn["name"] for fn in self.function_data]
 
 
 class CompileParamMask:
@@ -121,7 +82,9 @@ class RunModel:
         self.parameters: dict[str, Any] = {}
 
     def find_fn_name(self) -> None:
-        fn_prompt = self.get_fn_prompt(self.prompt)
+        fn_prompt = self.get_wrapped_prompt()
+        self.response_id = len(fn_prompt)
+        fn_prompt += '{"prompt": "' + self.prompt + ', "name": "'
         encoded_prompt = self.model.encode(fn_prompt)[0].tolist()
         encoded_fn: list[int] = []
         while True:
@@ -136,14 +99,18 @@ class RunModel:
             encoded_fn.append(max_logit_id)
         self.function_name = self.model.decode(encoded_fn)
 
-    def find_param_value(self, param_name: str) -> Any:
-        param_prompt = self.get_param_prompt(param_name)
-
+    def find_params(self) -> Any:
+        params = self.clean_fn_data.fn_params[self.function_name]
+        param_prompt = self.get_param_prompt()
+        encoded_param: list[int] = []
+        for p, p_type in params.items():
+            param_prompt += '"' + p + '": '
+            encoded_response = self.model.encode(param_prompt)[0].tolist()
+            fsm = FSMDispatch(p_type)
         #fn_name = prompt_w_fn_name[fn_id:]
         #params = self.regex_map.fn_param_types[fn_name]
         #prompt_w_fn_name += '", "parameters": {'
-        #for p, p_type in params.items():
-        #    prompt_w_fn_name += '"' + p + '": '
+        
         #    encoded_response = self.model.encode(prompt_w_fn_name)[0].tolist()
         #    encoded_param = []
         #    decoded_param = ""
@@ -160,15 +127,20 @@ class RunModel:
         #prompt_w_fn_name += '}}'
         #return prompt_w_fn_name[response_id:]
 
-    def get_fn_prompt(self, prompt: str) -> str:
-        return (f"Given the following functions and their definitions: {self.clean_fn_data.fn_names_defs}.\n" +
-                f"Which function will be used to answer this prompt: {prompt}\n")
+    def get_wrapped_prompt(self) -> str:
+        return ("You are a function-calling assistant.\n"
+                f"Available functions:\n{self.clean_fn_data.fn_names_defs}\n" +
+                f"User request: {self.prompt}\n" +
+                "Output the call in JSON format matching the schema:\n"
+                '{"prompt": <prompt>, "name": "<function_name>", "parameters": {<param_name>: <param_value>, ...}}\n'
+                "JSON output:\n")
 
-    def get_param_prompt(self, prompt: str) -> str:
-        return ("Given the parameters and types for the function" +
-                f"{self.function_name}: {self.clean_fn_data.fn_params}, " +
-                f"We want to answer the following prompt {self.prompt}. " +
-                "What should be the value for the parameter ")
+    def get_param_prompt(self) -> str:
+        return (
+            self.get_wrapped_prompt() +
+            '{"prompt": "' + self.prompt +
+            ', "name": "' + self.function_name + '", "parameters": {'
+        )
     
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
@@ -177,60 +149,3 @@ class RunModel:
         for token_id in allowed_tokens:
             masked[token_id] = logits[token_id]
         return masked
-
-
-# class ModelInterface:
-#     def __init__(
-#             self,
-#             ) -> None:
-#         self.model = Small_LLM_Model()
-#         self.constraints = constraints
-#         self.funcs = constraints.function_data
-#         self.function_names = self.get_function_names()
-
-#     def get_wrapped_prompt(self, raw_prompt: str) -> tuple[int, str]:
-#         wrapped_prompt = (f"Function definitions: {self.funcs}." +
-#                           f"Response output format: {
-#                               self.constraints.output_schema}" +
-#                           "Use the function definitions to answer" +
-#                           "the following prompt in the response output" +
-#                           f" format and nothing more:\n{raw_prompt}\n")
-#         response_start_id = len(wrapped_prompt)
-#         wrapped_prompt += '{\n"prompt":"' + f"{raw_prompt}" + '",\n"name": "'
-#         return (response_start_id, wrapped_prompt)
-
-#     def run_constrained_model(self, raw_prompt: str):
-#         response_start, wrapped_prompt = self.get_wrapped_prompt(raw_prompt)
-#         encode = self.model.encode(wrapped_prompt)[0].tolist()
-#         token_count = 0
-#         start = datetime.now()
-#         fn_name_id = len(wrapped_prompt)
-#         function_token_ids = [
-#             tok for name in self.get_function_name_token_ids() for tok in name]
-        
-#         end = datetime.now()
-#         print(f"Time elapsed: {end - start}")
-#         return self.model.decode(encode)[response_start:]
-
-#     def get_clean_vocab_tokens(self) -> dict[int, str]:
-#         vocab_file = self.model.get_path_to_vocab_file()
-#         with open(vocab_file) as vocab:
-#             vocab_dict = json.loads(vocab.read())
-#         return {
-#             k: v for k, v in vocab_dict.items() if k.isprintable()
-#         }
-
-#     def init_fn_name_tree(self, fn_tokens: list[list[int]]) -> None:
-#         ## Fix tree first
-
-#     def get_function_name_token_ids(self) -> list[list[int]]:
-#         function_token_ids = [
-#             self.model.encode(func["name"])[0].tolist() for func in self.funcs]
-#         return function_token_ids
-
-#     def get_function_names(self) -> list[str]:
-#         return [func["name"] for func in self.funcs]
-
-#     def get_allowed_tokens(self, last_token: int, fn_name_tree: dict[Any]) -> list[int]:
-
-    
