@@ -6,9 +6,34 @@ from .data_models import TokenTrie
 import re
 import json
 
+### Change structure ###
+## Query first function name through Trie and save
+## Then Query params and save
+## Finally Generate the actual JSON output with string and that
+
+# Pre sort tokens will be the longest part 
+
+
+class PrepareFnData:
+    def __init__(self, function_data: list[dict[str, Any]]):
+        self.function_data = function_data
+        self.fn_names_defs = self.get_fn_names_defs()
+        self.fn_params = self.get_fn_params()
+    
+    def get_fn_names_defs(self) -> list[dict[str, str]]:
+        return [
+            {"name": fn["name"], "definition": fn["definition"]} for fn in self.function_data
+            ]
+    
+    def get_fn_params(self) -> dict[str, Any]:
+        return {
+            fn["name"]: {
+                param: param["type"] for param in fn["parameters"]
+            } for fn in self.function_data
+        }
 
 class CreateFnTrie:
-    def __init__(self, function_data: dict[str, Any],
+    def __init__(self, function_data: list[dict[str, Any]],
                  model: Small_LLM_Model) -> None:
         self.function_data = function_data
         self.function_names = self.get_fn_names()
@@ -86,20 +111,18 @@ class CompileParamMask:
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
                  trie: TokenTrie, output_schema: dict[str, Any],
-                 function_data: dict[str, Any], regex_map: CompileParamMask):
+                 clean_fn_data: PrepareFnData, regex_map: CompileParamMask):
         self.model = model
         self.trie = trie
         self.prompt = prompt
         self.output_schema = output_schema
-        self.function_data = function_data
+        self.clean_fn_data = clean_fn_data
         self.regex_map = regex_map
+        self.parameters: dict[str, Any] = {}
 
-    def run_constrained(self) -> str:
-        wrapped_prompt = self.get_wrapped_prompt(self.prompt)
-        response_id = len(wrapped_prompt)
-        wrapped_prompt += '{"prompt": "' + self.prompt + '", "name": "'
-        fn_id = len(wrapped_prompt)
-        encoded_prompt = self.model.encode(wrapped_prompt)[0].tolist()
+    def find_fn_name(self) -> None:
+        fn_prompt = self.get_fn_prompt(self.prompt)
+        encoded_prompt = self.model.encode(fn_prompt)[0].tolist()
         encoded_fn: list[int] = []
         while True:
             logits = self.model.get_logits_from_input_ids(encoded_prompt)
@@ -111,43 +134,49 @@ class RunModel:
                 self.mask_logits(logits, allowed_next_tokens)).item()
             encoded_prompt.append(max_logit_id)
             encoded_fn.append(max_logit_id)
-        prompt_w_fn_name = self.model.decode(encoded_prompt)
-        fn_name = prompt_w_fn_name[fn_id:]
-        params = self.regex_map.fn_param_types[fn_name]
-        prompt_w_fn_name += '", "parameters": {'
-        for p, p_type in params.items():
-            prompt_w_fn_name += '"' + p + '": '
-            encoded_response = self.model.encode(prompt_w_fn_name)[0].tolist()
-            encoded_param = []
-            decoded_param = ""
-            while not self.regex_map.type_eof[p_type].match(decoded_param):
-                allowed_tokens = self.regex_map.get_fn_param_tokens(fn_name, p)
-                logits = self.model.get_logits_from_input_ids(encoded_response)
-                max_logit_id = np.argmax(
-                    self.mask_logits(logits, allowed_tokens)).item()
-                encoded_param.append(max_logit_id)
-                encoded_response.append(max_logit_id)
-                decoded_param = self.model.decode(encoded_param)
-                print(self.model.decode(encoded_response)[response_id:])
-            prompt_w_fn_name += self.model.decode(encoded_param)
-        prompt_w_fn_name += '}}'
-        return prompt_w_fn_name[response_id:]
+        self.function_name = self.model.decode(encoded_fn)
 
-    def get_wrapped_prompt(self, prompt: str) -> str:
-        return (f"Function definitions: {self.function_data}." +
-                f"Response output format: {self.output_schema}" +
-                "Always end the parameter values with a comma ','."
-                "Use the function definitions to answer" +
-                "the following prompt in the response output" +
-                f" format and nothing more:\n{prompt}\n")
+    def find_param_value(self, param_name: str) -> Any:
+        param_prompt = self.get_param_prompt(param_name)
 
+        #fn_name = prompt_w_fn_name[fn_id:]
+        #params = self.regex_map.fn_param_types[fn_name]
+        #prompt_w_fn_name += '", "parameters": {'
+        #for p, p_type in params.items():
+        #    prompt_w_fn_name += '"' + p + '": '
+        #    encoded_response = self.model.encode(prompt_w_fn_name)[0].tolist()
+        #    encoded_param = []
+        #    decoded_param = ""
+        #    while not self.regex_map.type_eof[p_type].match(decoded_param):
+        #        allowed_tokens = self.regex_map.get_fn_param_tokens(fn_name, p)
+        #        logits = self.model.get_logits_from_input_ids(encoded_response)
+        #        max_logit_id = np.argmax(
+        #            self.mask_logits(logits, allowed_tokens)).item()
+        #        encoded_param.append(max_logit_id)
+        #        encoded_response.append(max_logit_id)
+        #        decoded_param = self.model.decode(encoded_param)
+        #        print(self.model.decode(encoded_response)[response_id:])
+        #    prompt_w_fn_name += self.model.decode(encoded_param)
+        #prompt_w_fn_name += '}}'
+        #return prompt_w_fn_name[response_id:]
+
+    def get_fn_prompt(self, prompt: str) -> str:
+        return (f"Given the following functions and their definitions: {self.clean_fn_data.fn_names_defs}.\n" +
+                f"Which function will be used to answer this prompt: {prompt}\n")
+
+    def get_param_prompt(self, prompt: str) -> str:
+        return ("Given the parameters and types for the function" +
+                f"{self.function_name}: {self.clean_fn_data.fn_params}, " +
+                f"We want to answer the following prompt {self.prompt}. " +
+                "What should be the value for the parameter ")
+    
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
                     ) -> list[float]:
-        masked_set = ~np.isin(np.arange(0, len(logits)), allowed_tokens)
-        logits_np = np.array(logits)
-        logits_np[masked_set] = float("-inf")
-        return list(logits_np)
+        masked = [float("-inf")] * len(logits)
+        for token_id in allowed_tokens:
+            masked[token_id] = logits[token_id]
+        return masked
 
 
 # class ModelInterface:
