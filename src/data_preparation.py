@@ -8,19 +8,19 @@ class PrepareFnData:
         self.function_data = function_data
         self.fn_names_defs = self.get_fn_names_defs()
         self.fn_params = self.get_fn_params()
-    
+
     def get_fn_names_defs(self) -> list[dict[str, str]]:
         return [
-            {"name": fn["name"], "definition": fn["definition"]} for fn in self.function_data
+            {"name": fn["name"], "description": fn["description"]
+             } for fn in self.function_data
             ]
-    
+
     def get_fn_params(self) -> dict[str, Any]:
         return {
             fn["name"]: {
-                param: param["type"] for param in fn["parameters"]
+                param: val["type"] for param, val in fn["parameters"].items()
             } for fn in self.function_data
         }
-
 
 
 class CreateTries:
@@ -45,13 +45,13 @@ class CreateTries:
 
     def get_fn_names(self) -> list[str]:
         return [fn["name"] for fn in self.function_data]
-    
+
     def insert_true_false(self) -> None:
         t_enc = self.model.encode("true")[0].tolist()
         f_enc = self.model.encode("false")[0].tolist()
         self.BoolTrie.add_token_branch(t_enc)
         self.BoolTrie.add_token_branch(f_enc)
-    
+
 
 class BuildTokenCache:
     def __init__(self, str_to_tok: dict[str, int]) -> None:

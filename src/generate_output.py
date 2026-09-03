@@ -3,7 +3,7 @@ import numpy as np
 from typing import Any
 #  from datetime import datetime
 from .data_models import TokenTrie
-from .data_preparation import CreateTries, PrepareFnData
+from .data_preparation import CreateTries, PrepareFnData, BuildTokenCache
 import re
 import json
 from .fsms import FSMDispatch
@@ -72,15 +72,18 @@ class CompileParamMask:
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
                  trie: TokenTrie, output_schema: dict[str, Any],
-                 clean_fn_data: PrepareFnData, regex_map: CompileParamMask):
+                 clean_fn_data: PrepareFnData, token_cache: BuildTokenCache):
         self.model = model
         self.trie = trie
         self.prompt = prompt
         self.output_schema = output_schema
         self.clean_fn_data = clean_fn_data
-        self.regex_map = regex_map
+        self.token_cache = token_cache
         self.parameters: dict[str, Any] = {}
-    ### APPEND / EXTEND ENCODED TOKENS CONTINUOUSLY TO KEEP IT FLOWING INTACT
+
+    def run(self) -> None:
+        self.find_fn_name()
+
     def find_fn_name(self) -> None:
         fn_prompt = self.get_wrapped_prompt()
         self.response_id = len(fn_prompt)
@@ -97,6 +100,7 @@ class RunModel:
                 self.mask_logits(logits, allowed_next_tokens)).item()
             encoded_prompt.append(max_logit_id)
             encoded_fn.append(max_logit_id)
+        self.encoded_response = encoded_prompt
         self.function_name = self.model.decode(encoded_fn)
 
     def find_params(self) -> Any:
@@ -104,36 +108,19 @@ class RunModel:
         param_prompt = self.get_param_prompt()
         encoded_param: list[int] = []
         for p, p_type in params.items():
-            param_prompt += '"' + p + '": '
-            encoded_response = self.model.encode(param_prompt)[0].tolist()
+            param_extension = '"' + p + '": '
+            self.encoded_response.extend(
+                self.model.encode(param_extension)[0].tolist())
             fsm = FSMDispatch(p_type)
-        #fn_name = prompt_w_fn_name[fn_id:]
-        #params = self.regex_map.fn_param_types[fn_name]
-        #prompt_w_fn_name += '", "parameters": {'
-        
-        #    encoded_response = self.model.encode(prompt_w_fn_name)[0].tolist()
-        #    encoded_param = []
-        #    decoded_param = ""
-        #    while not self.regex_map.type_eof[p_type].match(decoded_param):
-        #        allowed_tokens = self.regex_map.get_fn_param_tokens(fn_name, p)
-        #        logits = self.model.get_logits_from_input_ids(encoded_response)
-        #        max_logit_id = np.argmax(
-        #            self.mask_logits(logits, allowed_tokens)).item()
-        #        encoded_param.append(max_logit_id)
-        #        encoded_response.append(max_logit_id)
-        #        decoded_param = self.model.decode(encoded_param)
-        #        print(self.model.decode(encoded_response)[response_id:])
-        #    prompt_w_fn_name += self.model.decode(encoded_param)
-        #prompt_w_fn_name += '}}'
-        #return prompt_w_fn_name[response_id:]
 
     def get_wrapped_prompt(self) -> str:
         return ("You are a function-calling assistant.\n"
                 f"Available functions:\n{self.clean_fn_data.fn_names_defs}\n" +
                 f"User request: {self.prompt}\n" +
-                "Output the call in JSON format matching the schema:\n"
-                '{"prompt": <prompt>, "name": "<function_name>", "parameters": {<param_name>: <param_value>, ...}}\n'
-                "JSON output:\n")
+                "Output the call in JSON format matching the schema:\n" +
+                '{"prompt": <prompt>, "name": "<function_name>",' +
+                '"parameters": {<param_name>: <param_value>, ...}}' +
+                '\nJSON output:\n')
 
     def get_param_prompt(self) -> str:
         return (
@@ -141,7 +128,7 @@ class RunModel:
             '{"prompt": "' + self.prompt +
             ', "name": "' + self.function_name + '", "parameters": {'
         )
-    
+
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
                     ) -> list[float]:
