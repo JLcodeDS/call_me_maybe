@@ -74,7 +74,7 @@ class BuildTokenCache:
         return {
             v for k, v in self.str_to_tok.items() if f(k)
         }
-    
+
     @staticmethod
     def clean_spaces(s: str):
         #  Might need to change to work for other models
@@ -87,7 +87,7 @@ class BuildTokenCache:
         try:
             int(s)
             return True
-        except:
+        except ValueError:
             return False
 
     @classmethod
@@ -97,7 +97,7 @@ class BuildTokenCache:
         if s.endswith(','):
             return cls.is_number_token(s[:-1])
         return False
-    
+
     @classmethod
     def isend_int(cls, s: str):
         if s == ',':
@@ -153,7 +153,7 @@ class BuildTokenCache:
                 s = s[:-1]
             return cls.isin_str(s)
         return False
-    
+
     @staticmethod
     def is_control_char(c: str):
         return ord(c) < 32  # ascii num

@@ -18,13 +18,14 @@ def main() -> None:
         vocab = json.load(v)
     token_start = datetime.now()
     token_cache = BuildTokenCache(vocab)
+    cache = token_cache.token_cache
     print(f"Cache built in {datetime.now() - token_start}")
     prompts = [p["prompt"] for p in data.prompt_data]
     start = datetime.now()
     for i, prompt in enumerate(prompts):
         print(f"Evaluating prompt: {prompt}")
         run = RunModel(prompt, model, trie_engine.FnTrie,
-                       output_schema, clean_data, token_cache)
+                       output_schema, clean_data, cache)
         run.run()
         print(f"Done:\n{run.function_name}")
     end = datetime.now()

@@ -72,7 +72,8 @@ class CompileParamMask:
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
                  trie: TokenTrie, output_schema: dict[str, Any],
-                 clean_fn_data: PrepareFnData, token_cache: BuildTokenCache):
+                 clean_fn_data: PrepareFnData, token_cache: dict[str, set[int]]
+                 ):
         self.model = model
         self.trie = trie
         self.prompt = prompt
@@ -111,7 +112,7 @@ class RunModel:
             param_extension = '"' + p + '": '
             self.encoded_response.extend(
                 self.model.encode(param_extension)[0].tolist())
-            fsm = FSMDispatch(p_type)
+            fsm = FSMDispatch(p_type, self.token_cache)
 
     def get_wrapped_prompt(self) -> str:
         return ("You are a function-calling assistant.\n"
