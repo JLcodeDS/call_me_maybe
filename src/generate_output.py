@@ -113,6 +113,7 @@ class RunModel:
             self.encoded_response.extend(
                 self.model.encode(param_extension)[0].tolist())
             fsm = FSMDispatch(p_type, self.token_cache)
+            fsm_type = fsm.dispatch()
 
     def get_wrapped_prompt(self) -> str:
         return ("You are a function-calling assistant.\n"
