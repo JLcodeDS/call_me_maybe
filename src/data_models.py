@@ -14,7 +14,7 @@ class FunctionDefinitions(BaseModel):
 
 
 class JSONOutput(BaseModel):
-    prompt: str = Field(min_length=5, max_length=500)
+    prompt: str = Field(min_length=3, max_length=500)
     name: str = Field(min_length=3, max_length=500)
     parameters: dict[str, Any]
 
@@ -41,16 +41,16 @@ class TokenTrie:
             current_node = current_node.children[t]
         current_node.end_word = True
 
-    def get_next_allowed_tokens(self, tokens: list[int]) -> list[int] | None:
+    def get_next_allowed_tokens(self, tokens: list[int]) -> set[int] | None:
         current_node = self.first_node
         if not len(tokens):
-            return list(current_node.children.keys())
+            return current_node.children.keys()
         for t in tokens:
             current_node = current_node.children[t]
         if current_node.end_word:
             return None
         else:
-            return list(current_node.children.keys())
+            return current_node.children.keys()
 
 
 """

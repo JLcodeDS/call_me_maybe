@@ -29,10 +29,8 @@ class CreateTries:
         self.function_data = function_data
         self.function_names = self.get_fn_names()
         self.FnTrie = TokenTrie()
-        self.BoolTrie = TokenTrie()
         self.model = model
         self.insert_fns()
-        self.insert_true_false()
 
     def make_encode(self, func) -> str:
         return self.model.encode(func)[0].tolist()
@@ -46,17 +44,12 @@ class CreateTries:
     def get_fn_names(self) -> list[str]:
         return [fn["name"] for fn in self.function_data]
 
-    def insert_true_false(self) -> None:
-        t_enc = self.model.encode("true")[0].tolist()
-        f_enc = self.model.encode("false")[0].tolist()
-        self.BoolTrie.add_token_branch(t_enc)
-        self.BoolTrie.add_token_branch(f_enc)
-
 
 class BuildTokenCache:
     def __init__(self, str_to_tok: dict[str, int]) -> None:
         self.str_to_tok = str_to_tok
-        self.token_cache: dict[str, set[int]] = {}
+        self.structural_chars = {'{', '}', '[', ']', ':', ',', '"'}
+        self.token_cache: dict[str, Any] = {}
 
     def build_cache(self) -> None:
         self.token_cache["INT"] = self.filter_tokens(self.is_int)
@@ -140,18 +133,14 @@ class BuildTokenCache:
         if s == '"':
             return True
         if s.endswith('"') and not s.endswith('\\"'):
-            return cls.isin_str(s.replace('"', "", 1))
+            return cls.isin_str(s[:-1])
+        return False
 
     @classmethod
     def isstart_str(cls, s: str):
         s = cls.clean_spaces(s)
         if s == '"':
             return True
-        if s.startswith('"'):
-            s = s[1:]
-            if s.endswith('"') and not s.endswith('\\"'):
-                s = s[:-1]
-            return cls.isin_str(s)
         return False
 
     @staticmethod

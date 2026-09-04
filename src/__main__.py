@@ -14,11 +14,15 @@ def main() -> None:
     clean_data = PrepareFnData(data.function_data)
     output_schema = JSONOutput.model_json_schema()
     trie_engine = CreateTries(data.function_data, model)
-    with open(model.get_path_to_vocab_file()) as v:
+    with open(model.get_path_to_vocab_file(), 'r', encoding='utf-8') as v:
         vocab = json.load(v)
     token_start = datetime.now()
     token_cache = BuildTokenCache(vocab)
+    token_cache.build_cache()
     cache = token_cache.token_cache
+    print(
+        [model.decode(tok) for tok in cache["START_STR"]]
+    )
     print(f"Cache built in {datetime.now() - token_start}")
     prompts = [p["prompt"] for p in data.prompt_data]
     start = datetime.now()
@@ -26,8 +30,8 @@ def main() -> None:
         print(f"Evaluating prompt: {prompt}")
         run = RunModel(prompt, model, trie_engine.FnTrie,
                        output_schema, clean_data, cache)
-        run.run()
-        print(f"Done:\n{run.function_name}")
+        s = run.run()
+        print(f"Done:\n{s}\n")
     end = datetime.now()
     print(f"Time elapsed: {end - start}")
 
