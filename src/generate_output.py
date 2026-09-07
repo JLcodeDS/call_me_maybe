@@ -1,15 +1,17 @@
 from llm_sdk import Small_LLM_Model  # type: ignore
 import numpy as np
 from typing import Any
-from .data_models import TokenTrie
+from .data_models import TokenTrie, DynamicParameterModel
 from .data_preparation import PrepareFnData
-from .fsms import FSMDispatch
+from .fsms import PydanticFSM
 
 
 class RunModel:
     def __init__(self, prompt: str, model: Small_LLM_Model,
                  trie: TokenTrie, output_schema: dict[str, Any],
-                 clean_fn_data: PrepareFnData, token_cache: dict[str, set[int]]
+                 clean_fn_data: PrepareFnData,
+                 dynamic_params: DynamicParameterModel,
+                 token_cache: dict[str, set[int]]
                  ):
         self.model = model
         self.trie = trie
@@ -17,14 +19,15 @@ class RunModel:
         self.output_schema = output_schema
         self.clean_fn_data = clean_fn_data
         self.token_cache = token_cache
+        self.dynamic_models = dynamic_params
         self.parameters: dict[str, Any] = {}
 
     def run(self) -> str:
         self.find_fn_name()
         print(f"function: {self.function_name}\nsearching params...")
         self.find_params()
-        json_str = self.model.decode(self.encoded_response)[:-2] + "}}"
-        return json_str[len(self.get_wrapped_prompt()):]
+        json_str = self.model.decode(self.encoded_response) + "}"
+        return json_str[len(self.get_wrapped_prompt())]
 
     def find_fn_name(self) -> None:
         fn_prompt = self.get_wrapped_prompt()
@@ -46,34 +49,21 @@ class RunModel:
         self.function_name = self.model.decode(encoded_fn)
 
     def find_params(self) -> None:
-        params = self.clean_fn_data.fn_params[self.function_name]
+        params = self.dynamic_models.fn_models[self.function_name]
+        fsm = PydanticFSM(params, self.token_cache)
         self.encoded_response.extend(self.get_param_prompt_tokens())
-        for i, (p, p_type) in enumerate(params.items()):
-            encoded_param: list[int] = []
-            param_extension = f'"{p}": '
-            self.encoded_response.extend(
-                self.model.encode(param_extension)[0].tolist())
-            fsm_dispatch = FSMDispatch(p_type, self.token_cache, self.model)
-            FsmType = fsm_dispatch.dispatch()
-            while not FsmType.is_end_state(encoded_param):
-                print(self.model.decode(self.encoded_response))
-                logits = self.model.get_logits_from_input_ids(
-                    self.encoded_response)
-                allowed_next_tokens = FsmType.get_allowed_next_tokens(
-                    encoded_param)
-                assert allowed_next_tokens is not None
-                max_logit_id = np.argmax(
-                                self.mask_logits(logits, list(
-                                    allowed_next_tokens))).item()
-                self.encoded_response.append(max_logit_id)
-                encoded_param.append(max_logit_id)
-            if i < len(params):
-                if p_type not in ("number", "integer"):
-                    self.encoded_response.extend(
-                                self.model.encode(", ")[0].tolist())
-                else:
-                    self.encoded_response.extend(
-                                    self.model.encode(" ")[0].tolist())
+        params_id = len(self.encoded_response)
+        while True:
+            allowed_next_tokens = fsm.get_allowed_tokens(
+                self.model.decode(self.encoded_response[params_id:]))
+            if allowed_next_tokens is None:
+                break
+            logits = self.model.get_logits_from_input_ids(
+                self.encoded_response)
+            max_logit_id = np.argmax(
+                            self.mask_logits(logits, list(
+                                allowed_next_tokens))).item()
+            self.encoded_response.append(max_logit_id)
 
     def get_wrapped_prompt(self) -> str:
         return ("You are a function-calling assistant.\n"
@@ -90,7 +80,7 @@ class RunModel:
                 '\nJSON output:\n')
 
     def get_param_prompt_tokens(self) -> list[int]:
-        return self.model.encode('", "parameters": {')[0].tolist()
+        return self.model.encode('", "parameters": ')[0].tolist()
 
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]
