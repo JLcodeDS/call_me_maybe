@@ -4,8 +4,7 @@ from typing import Any
 from .data_models import TokenTrie, DynamicParameterModel
 from .data_preparation import PrepareFnData
 from .fsms import PydanticFSM
-from pydantic import ValidationError
-import json
+from pydantic import ValidationError, BaseModel
 from datetime import datetime
 
 
@@ -24,17 +23,15 @@ class RunModel:
         self.dynamic_models = dynamic_params
         self.parameters: dict[str, Any] = {}
 
-    def run(self) -> str:
-        startfn = datetime.now()
+    def run(self) -> dict[str, Any]:
         self.find_fn_name()
-        print(f"fn in {datetime.now() - startfn}")
         self.find_params()
         json_str = self.model.decode(self.encoded_response)
         output = json_str[len(self.get_wrapped_prompt()):]
         try:
-            self.dynamic_models.fn_models[
+            valid = self.dynamic_models.fn_models[
                 self.function_name].model_validate_json(output)
-            return json.dumps(output)
+            return valid.model_dump()
         except ValidationError as e:
             print(f"Error for \n{output}")
             raise e
@@ -46,13 +43,9 @@ class RunModel:
         encoded_prompt = self.model.encode(fn_prompt)[0].tolist()
         encoded_fn: list[int] = []
         while True:
-            start_log = datetime.now()
             logits = self.model.get_logits_from_input_ids(encoded_prompt)
-            print(f"fn logit: {datetime.now() - start_log}")
-            start_log = datetime.now()
             allowed_next_tokens = self.trie.get_next_allowed_tokens(
                 encoded_fn)
-            print(f"fn get tok: {datetime.now() - start_log}")
             if allowed_next_tokens is None:
                 break
             max_logit_id = self.mask_logits(logits, list(allowed_next_tokens))

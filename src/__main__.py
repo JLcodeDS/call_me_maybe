@@ -32,7 +32,7 @@ def main() -> None:
         outputs.append(s)
         print(f"Done:\n{s}\n")
     with open(data.dict_params["output"], 'w+') as f:
-        json.dump(outputs, f)
+        json.dump(outputs, f, indent=4)
         print(f"Function calls saved at {data.dict_params["output"]}.")
     end = datetime.now()
     print(f"Time elapsed: {end - start}")
