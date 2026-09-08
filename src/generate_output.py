@@ -51,6 +51,7 @@ class RunModel:
             max_logit_id = self.mask_logits(logits, list(allowed_next_tokens))
             encoded_prompt.append(max_logit_id)
             encoded_fn.append(max_logit_id)
+            print(f"{self.model.decode(max_logit_id)}", end="", flush=True)
         self.encoded_response = encoded_prompt
         self.function_name = self.model.decode(encoded_fn)
 
@@ -68,6 +69,7 @@ class RunModel:
             max_logit_id = self.mask_logits(logits, list(
                                 allowed_next_tokens))
             self.encoded_response.append(max_logit_id)
+            print(f"{self.model.decode(max_logit_id)}", end="", flush=True)
             response_buffer += self.model.decode(max_logit_id)
 
     def get_wrapped_prompt(self) -> str:

@@ -1,14 +1,29 @@
 [
   {
-    "prompt": "Replace all numbers in \"Hello 34 I'm 233 years old\" with NUMBERS"
+    "prompt": "Turn off the active visibility setting."
   },
   {
-    "prompt": "What is the sum of 2 and 3?"
+    "prompt": "Find the average of these test scores: 85, 90, 78, and 92."
   },
   {
-    "prompt": "What is the sum of 265 and 345?"
+    "prompt": "Look through this list ['apple', 'banana', 'kiwi', 'pear'] and keep words with at least 5 characters."
   },
   {
-    "prompt": "Greet shrek"
+    "prompt": "Print the message 'Alert!' exactly 5 times."
+  },
+  {
+    "prompt": "Force a complete system cache reset right now."
+  },
+  {
+    "prompt": "Give me 6 random unique lottery numbers where the highest possible number is 49."
+  },
+  {
+    "prompt": "Calculate the final price for a $120.50 item with a 15% discount, and make sure it is tax exempt."
+  },
+  {
+    "prompt": "Join the phrases 'Red', 'Green', and 'Blue' using a hyphen delimiter."
+  },
+  {
+    "prompt": "What is the highest number in this group: [-10, 45, 12, 89, 3]?"
   }
 ]
