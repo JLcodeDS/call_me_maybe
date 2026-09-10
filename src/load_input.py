@@ -54,7 +54,7 @@ class LoadData:
             raise FileNotFoundError(f"Error when parsing json data: {e}")
 
     def _validate_data(self) -> None:
-        errors_lst: list = []
+        errors_lst: list[str] = []
         for prompt in self.prompt_data:
             try:
                 PromptSchema.model_validate(prompt)

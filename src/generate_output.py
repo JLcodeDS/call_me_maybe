@@ -1,11 +1,10 @@
 from llm_sdk import Small_LLM_Model  # type: ignore
 import numpy as np
-from typing import Any
+from typing import Any, cast
 from .data_models import TokenTrie, DynamicParameterModel
 from .data_preparation import PrepareFnData
 from .fsms import PydanticFSM
-from pydantic import ValidationError, BaseModel
-from datetime import datetime
+from pydantic import ValidationError
 
 
 class RunModel:
@@ -24,7 +23,9 @@ class RunModel:
         self.parameters: dict[str, Any] = {}
 
     def run(self) -> dict[str, Any]:
+        print("Finding function...", flush=True)
         self.find_fn_name()
+        print("\nFinding parameters...", flush=True)
         self.find_params()
         json_str = self.model.decode(self.encoded_response)
         output = json_str[len(self.get_wrapped_prompt()):]
@@ -59,9 +60,12 @@ class RunModel:
         params = self.dynamic_models.fn_models[self.function_name]
         fsm = PydanticFSM(params, self.token_cache)
         self.encoded_response.extend(self.get_param_prompt_tokens())
+        entire_response_buffer = self.model.decode(self.encoded_response)[
+            len(self.get_wrapped_prompt()):]
         response_buffer = ""
         while True:
-            allowed_next_tokens = fsm.get_allowed_tokens(response_buffer)
+            allowed_next_tokens = fsm.get_allowed_tokens(
+                response_buffer, entire_response_buffer)
             if allowed_next_tokens is None:
                 break
             logits = self.model.get_logits_from_input_ids(
@@ -69,15 +73,17 @@ class RunModel:
             max_logit_id = self.mask_logits(logits, list(
                                 allowed_next_tokens))
             self.encoded_response.append(max_logit_id)
-            print(f"{self.model.decode(max_logit_id)}", end="", flush=True)
-            response_buffer += self.model.decode(max_logit_id)
+            new_token = self.model.decode(max_logit_id)
+            print(f"{new_token}", end="", flush=True)
+            response_buffer += new_token
+            entire_response_buffer += new_token
 
     def get_wrapped_prompt(self) -> str:
         return ("You are a function-calling assistant.\n"
                 f"Available functions:\n{self.clean_fn_data.function_data}\n" +
                 "Output the call in JSON format matching the schema:\n" +
                 '{"prompt": <prompt>, "name": "<function_name>",' +
-                ' "parameters": {<param_name>: <param_value>, ...}}\n' +
+                ' "parameters": {<param_name>: <param_value>, ...}}' +
                 "Rule: For the regex field, NEVER output literal matches. "
                 "Always use proper regex sets "
                 "(e.g. '[aeiouAEIOU]', '[0-9]+', '\\bword\\b'). "
@@ -87,7 +93,8 @@ class RunModel:
                 '\nJSON output:\n')
 
     def get_param_prompt_tokens(self) -> list[int]:
-        return self.model.encode('", "parameters": ')[0].tolist()
+        encode = self.model.encode('", "parameters": ')[0].tolist()
+        return cast(list[int], encode)
 
     @staticmethod
     def mask_logits(logits: list[float], allowed_tokens: list[int]

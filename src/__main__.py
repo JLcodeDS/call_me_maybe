@@ -12,7 +12,7 @@ def main() -> None:
     data.load_data()
     model = Small_LLM_Model(device="cuda")
     clean_data = PrepareFnData(data.function_data)
-    dynamic_model = DynamicParameterModel(clean_data.fn_params)
+    dynamic_model = DynamicParameterModel(clean_data.json_params)
     trie_engine = CreateTries(data.function_data, model)
     with open(model.get_path_to_vocab_file(), 'r', encoding='utf-8') as v:
         vocab = json.load(v)

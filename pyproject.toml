@@ -15,6 +15,7 @@ dependencies = [
     "llm-sdk",
     "torch>=2.6.0",
     "accelerate>=1.14.0",
+    "json-schema-to-pydantic>=0.4.11",
 ]
 
 [build-system]
