@@ -9,16 +9,10 @@ class PydanticFSM:
         self.token_cache = token_cache
         self.properties = self.param_json['$defs'].get(
             'parameters').get('properties')
-    # =========================================================================
-    # CORE REFACTOR: Shift from loose lookback guessing to a clean linear state scanner
-    # =========================================================================
-    
-    def get_allowed_tokens(self, response_buffer: str, entire_response_buffer: str) -> set[int] | None:
-        """
-        Parses the text buffer from left to right to discover the exact syntactical
-        state and the currently active parameter name.
-        """
-        # Clean terminal exit: If the structure is completely closed, terminate generation
+
+    def get_allowed_tokens(self, response_buffer: str,
+                           entire_response_buffer: str) -> set[int] | None:
+
         if self.has_closed_brackets(
                 entire_response_buffer) and entire_response_buffer.strip(
                     ).endswith("}"):
@@ -30,31 +24,30 @@ class PydanticFSM:
         in_string = False
         current_key = ""
         building_key = False
-        
-        # State tracking flags
         expect_colon = False
         expect_value = False
         expect_comma_or_end = False
-
-        # --- NEW: Step-by-step state tracker loop ---
+        is_escaped = False
+        array_depth = 0
         i = 0
+
         while i < len(response_buffer):
             char = response_buffer[i]
-            
-            # Handle escape sequences safely so they don't break string boundaries
-            if char == '\\' and i + 1 < len(response_buffer):
-                i += 2
+            if in_string and not is_escaped and char == '\\':
+                is_escaped = True
+                i += 1
                 continue
-                
+            if is_escaped:
+                is_escaped = False
+                i += 1
+                continue
             if char == '"':
                 in_string = not in_string
                 if in_string:
-                    # If we aren't expecting a value or delimiter, we must be opening a key
                     if not expect_value and not expect_comma_or_end:
                         building_key = True
                         current_key = ""
                 else:
-                    # String just closed
                     if building_key:
                         building_key = False
                         expect_colon = True
@@ -62,54 +55,60 @@ class PydanticFSM:
                         expect_value = False
                         expect_comma_or_end = True
             elif not in_string:
-                if char == '{':
-                    pass  # Outer JSON wrapper opened
+                if char == '[':
+                    array_depth += 1
+                    expect_value = True
+                elif char == ']':
+                    array_depth -= 1
+                    expect_value = False
+                    expect_comma_or_end = True
+                elif char == '{':
+                    pass
                 elif char == ':':
                     expect_colon = False
                     expect_value = True
                 elif char == ',':
                     expect_comma_or_end = False
                     expect_value = False
-                elif char in ('}', ']'):
-                    pass
+                    if array_depth > 0:
+                        expect_value = True
                 elif building_key:
                     current_key += char
             elif in_string and building_key:
                 current_key += char
-                
             i += 1
-
-        # =========================================================================
-        # TARGETED TOKEN MASKING: Return token groups bound directly to state rules
-        # =========================================================================
-        # print(response_buffer)
-        # print(f"str: {in_string}, colon: {expect_colon}, value: {expect_value}, comma_end: {expect_comma_or_end}")
         if in_string:
             return self.token_cache["STRING_INNER"]
-            
         if expect_colon:
             return self.token_cache["EXPECT_COLON"]
-            
         if expect_value:
-            # --- NEW: Dynamic type enforcement based on active key schema ---
-            param_type = self.properties.get(current_key, {}).get("type")
-            if param_type == "number" or param_type == "integer":
-                # CRITICAL FIX: Strip quote boundaries out entirely for numbers.
-                # Force the model to output a raw mathematical digits block.
-                return self.token_cache["NUMBER_CONTINUE"].union(
+            param_schema = self.properties.get(current_key, {})
+            is_array_type = (param_schema.get("type") == "array")
+            if is_array_type and array_depth == 0:
+                return self.token_cache["ARR_START_END"]
+            if is_array_type and array_depth > 0:
+                param_type = param_schema.get("items", {}).get("type")
+            else:
+                param_type = param_schema.get("type")
+            if param_type in ("number", "integer"):
+                allowed = self.token_cache["NUMBER_CONTINUE"].union(
                     self.token_cache["NEXT_DELIMITER"])
-                
-            if param_type == "boolean":
-                # Force exact literal true/false tokens immediately
-                return self.token_cache["BOOL_CONTINUE"].union(
+                if array_depth > 0:
+                    allowed = allowed.union(self.token_cache["ARR_START_END"])
+                return allowed
+            if param_type in ("boolean", "null"):
+                allowed = self.token_cache["BOOL_CONTINUE"].union(
                     self.token_cache["NEXT_DELIMITER"])
-                
-            # Default fallback for strings
-            return self.token_cache["ANY_VALUE_START"]
-            
+                if array_depth > 0:
+                    allowed = allowed.union(self.token_cache["ARR_START_END"])
+                return allowed
+            if param_type == "string":
+                return self.token_cache["ANY_VALUE_START"]
         if expect_comma_or_end:
-            return self.token_cache["NEXT_DELIMITER"]
-
+            allowed = self.token_cache["NEXT_DELIMITER"]
+            if array_depth > 0:
+                allowed = allowed.union(self.token_cache["ARR_START_END"])
+            return allowed
         return self.token_cache["ANY_VALUE_START"]
 
     @staticmethod

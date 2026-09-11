@@ -64,54 +64,41 @@ class BuildTokenCache:
             }
 
     def build_cache(self) -> None:
-        # 1. Start Parameter Block
-        # Matches exactly the opening brace of the parameter JSON object
         self.token_cache["START_PARAM"] = self.filter_tokens(
             lambda s: s.strip().startswith('{')
         )
 
-        # 2. General/String Value Start
-        # Used strictly for strings or arbitrary objects. Includes opening quotes.
         self.token_cache["ANY_VALUE_START"] = self.filter_tokens(
-            lambda s: any(s.lstrip().startswith(c) for c in ['"', '['])
+            lambda s: any(s.strip().startswith(c) for c in ['"', '['])
         )
-
-        # 3. Boolean/Null Literals
-        # Allows full or fractional structural pieces of true, false, and null
         self.token_cache["BOOL_CONTINUE"] = self.filter_tokens(
             lambda s: any(s.strip().startswith(c) for c in [
-                "t", "tr", "tru", "true",
-                "f", "fa", "fal", "fals", "false",
-                "n", "nu", "nul", "null"
+                "e", "ue", "rue", "true",
+                "se", "lse", "alse", "false",
+                "l", "ll", "ull", "null"
             ])
         )
 
-        # 4. Strict Number Continuations (CRITICAL UPDATE)
-        # Strips out trailing punctuation hooks (, } ]). 
-        # Only allows pure numeric notation: digits, signs, decimals, and exponents.
+        self.token_cache["ARR_START_END"] = self.filter_tokens(
+            lambda s: s.strip().startswith('["') or s.strip().endswith('"]')
+            or s.strip() in ('[', ']')
+        )
+
         self.token_cache["NUMBER_CONTINUE"] = self.filter_tokens(
             lambda s: bool(re.match(
                 r'^-?[0-9]*\.?[0-9]*([eE][+-]?[0-9]*)?$', s.strip()))
             and s.strip() != ""
         )
 
-        # 5. Inner String Contents
-        # Allows any characters except unescaped double quotes or control codes
         self.token_cache["STRING_INNER"] = self.filter_tokens(
-            lambda s: ('"' not in s or s.startswith(
-                '"') or s == '"' or s.rstrip().endswith('"'))
-            and not any(ord(c) < 32 for c in s)
+            lambda s: not any(ord(c) < 32 for c in s)
         )
 
-        # 6. Syntax Structural Delimiters
-        # Handles transition boundaries separating keys, values, or object endings
         self.token_cache["NEXT_DELIMITER"] = self.filter_tokens(
             lambda s: any(c in s for c in [',', '}', ']']) or
-            any(s.lstrip().startswith(c) for c in [',', '}', ']'])
+            any(s.strip().startswith(c) for c in [',', '}', ']'])
         )
 
-        # 7. Key/Value Structural Map
-        # Strictly matches the structural mapping separator colon
         self.token_cache["EXPECT_COLON"] = self.filter_tokens(
-            lambda s: ':' in s or s.lstrip().startswith(':')
+            lambda s: ':' in s or s.strip().startswith(':')
         )

@@ -106,7 +106,7 @@
   },
   {
     "name": "fn_apply_discount",
-    "description": "Apply a percentage discount to a base price and flag whether tax is included.",
+    "description": "Apply a percentage discount to a base price and flag whether tax it is tax exempt.",
     "parameters": {
       "price": {
         "type": "number"

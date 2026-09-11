@@ -1,7 +1,5 @@
 PYTHON = uv run python
 
-.PHONY: all install run debug clean lint lint-strict
-
 all: install
 
 install:
@@ -23,3 +21,5 @@ lint-strict:
 
 clean:
 	rm -rf __pycache__ .mypy_cache .pytest_cache src/__pycache__
+
+.PHONY: all install run debug clean lint lint-strict

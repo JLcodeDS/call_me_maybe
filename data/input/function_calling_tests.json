@@ -1,10 +1,13 @@
-[
+[  {
+    "prompt": "Give me 6 random unique lottery numbers where the highest possible number is 49."
+  },
   {
     "prompt": "Turn off the active visibility setting."
   },
   {
     "prompt": "Find the average of these test scores: 85, 90, 78, and 92."
   },
+  
   {
     "prompt": "Look through this list ['apple', 'banana', 'kiwi', 'pear'] and keep words with at least 5 characters."
   },
@@ -14,9 +17,7 @@
   {
     "prompt": "Force a complete system cache reset right now."
   },
-  {
-    "prompt": "Give me 6 random unique lottery numbers where the highest possible number is 49."
-  },
+
   {
     "prompt": "Calculate the final price for a $120.50 item with a 15% discount, and make sure it is tax exempt."
   },
