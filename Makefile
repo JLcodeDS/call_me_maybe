@@ -1,6 +1,6 @@
 PYTHON = uv run python
 
-all: install
+all: install run
 
 install:
 	uv sync
