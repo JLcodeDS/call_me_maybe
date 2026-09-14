@@ -1,6 +1,5 @@
 from pydantic import ValidationError
 import json
-from sys import argv
 from .data_models import FunctionDefinitions, PromptSchema
 from argparse import ArgumentParser
 
@@ -34,10 +33,15 @@ class LoadData:
         try:
             with open(self.dict_params["functions_definition"]) as funcs:
                 self.function_data = json.load(funcs)
+        except Exception as e:
+            raise Exception(f"Error when loading file {
+                self.dict_params["input"]}: {e}")
+        try:
             with open(self.dict_params["input"]) as prompts:
                 self.prompt_data = json.load(prompts)
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"Error when parsing json data: {e}")
+        except Exception as e:
+            raise Exception(f"Error when loading file {
+                self.dict_params["input"]}: {e}")
 
     def _validate_data(self) -> None:
         errors_lst: list[str] = []

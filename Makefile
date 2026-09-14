@@ -20,7 +20,7 @@ lint-strict:
 	mypy /src --strict
 
 clean:
-	rm -rf __pycache__ .mypy_cache .pytest_cache src/__pycache__ uv.lock data/output .venv
+	rm -rf __pycache__ .mypy_cache .pytest_cache src/__pycache__ data/output .venv
 
 re: clean all
 

@@ -86,6 +86,9 @@ The system achieves robust validation guarantees through a dual-phase logit mani
 
 ### Resources
 
-* *Pydantic Model Documentation (Dynamic Fields Verification Layouts)*
-* *Constrained Decoding and Logit Masking Paradigms for LLMs*
-* *AI Usage Statement*: AI was leveraged to find and understand resources on Tries, FSMs and tokenization techniques. Additionally, to cross-check static typing declarations across the data modules and help with Makefile definitions.
+* Trie Structure: https://www.geeksforgeeks.org/dsa/trie-insert-and-search/
+* Constrained Decoding: https://www.aidancooper.co.uk/constrained-decoding/
+* FSMs: https://adacomputerscience.org/concepts/machines_fsm
+* Along with those, multiple youtube videos of in depth python implementations for Tries, Constrained Decoding and FSMs. 
+* Regex Cheatsheet: https://www.w3schools.com/python/python_regex.asp
+* AI Usage Statement: AI was leveraged to find and understand resources on Tries, FSMs and tokenization techniques. Additionally, to cross-check static typing declarations across the data modules and help with the Readme file.
