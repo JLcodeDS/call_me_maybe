@@ -5,12 +5,13 @@ from .data_preparation import PrepareFnData, BuildTokenCache, CreateTries
 from llm_sdk import Small_LLM_Model  # type:ignore
 from datetime import datetime
 import json
+import os
 
 
 def main() -> None:
     data = LoadData()
     data.load_data()
-    model = Small_LLM_Model(device="cuda")
+    model = Small_LLM_Model()
     clean_data = PrepareFnData(data.function_data)
     dynamic_model = DynamicParameterModel(clean_data.json_params)
     trie_engine = CreateTries(data.function_data, model)
@@ -31,6 +32,9 @@ def main() -> None:
         s = run.run()
         outputs.append(s)
         print(f"Done:\n{s}\n")
+    output_dir = os.path.dirname(data.dict_params["output"])
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     with open(data.dict_params["output"], 'w+') as f:
         json.dump(outputs, f, indent=4)
         print(f"Function calls saved at {data.dict_params["output"]}.")

@@ -2,47 +2,33 @@ from pydantic import ValidationError
 import json
 from sys import argv
 from .data_models import FunctionDefinitions, PromptSchema
+from argparse import ArgumentParser
 
 
 class LoadData:
     def _read_cli_params(self) -> None:
-        dict_params = {
-            "functions_definition": "data/input/functions_definition.json",
-            "input": "data/input/function_calling_tests.json",
-            "output": "data/output/function_calling_results.json"
-        }
-
-        usage_err_str = (
-            "Usage: uv run python -m src"
-            "[--functions_definition <function_definition_file>]"
-            "[--input <input_file>] [--output <output_file>]"
-                        )
-
-        allowed_args = ["--functions_definition", "--input", "--output"]
-
-        if len(argv) == 1:
-            self.dict_params = dict_params
-        elif len(argv) > 7:
-            raise Exception(
-                "ERROR: too many arguments.\n" + usage_err_str
-            )
-        else:
-            params = argv[1:]
-            param_pairs = list(zip(params[::2], params[1::2]))
-            if len(params) % 2 or not len(param_pairs):
-                raise Exception(
-                    "ERROR: missing values for specified arguments.\n" +
-                    usage_err_str
-                                )
-            for pair in param_pairs:
-                if pair[0] not in allowed_args:
-                    raise Exception(
-                        "ERROR: duplicate or incorrect arguments.\n" +
-                        usage_err_str
-                    )
-                dict_params[pair[0].replace("--", "")] = pair[1]
-                allowed_args.remove(pair[0])
-            self.dict_params = dict_params
+        parser = ArgumentParser(
+            description=(
+                "Process function definition, input, and output files."),
+            usage=("uv run python -m src [--functions_definition <file>]" +
+                   "[--input <file>] [--output <file>]")
+        )
+        parser.add_argument(
+            "--functions_definition",
+            default="data/input/functions_definition.json",
+            help="Path to the functions definition JSON file"
+        )
+        parser.add_argument(
+            "--input",
+            default="data/input/function_calling_tests.json",
+            help="Path to the input JSON file"
+        )
+        parser.add_argument(
+            "--output",
+            default="data/output/function_calling_results.json",
+            help="Path to the output JSON file"
+        )
+        self.dict_params = vars(parser.parse_args())
 
     def _load_json(self) -> None:
         try:

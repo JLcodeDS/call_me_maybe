@@ -1,37 +1,13 @@
 [
   {
-    "name": "fn_is_even",
-    "description": "Check if a given integer is an even number.",
+    "name": "fn_add_numbers",
+    "description": "Add two numbers together and return their sum.",
     "parameters": {
-      "num": {
-        "type": "integer"
-      }
-    },
-    "returns": {
-      "type": "boolean"
-    }
-  },
-  {
-    "name": "fn_toggle_status",
-    "description": "Invert the current visibility or active state.",
-    "parameters": {
-      "is_active": {
-        "type": "boolean"
-      }
-    },
-    "returns": {
-      "type": "boolean"
-    }
-  },
-  {
-    "name": "fn_calculate_average",
-    "description": "Compute the mathematical mean of an array of numbers.",
-    "parameters": {
-      "numbers": {
-        "type": "array",
-        "items": {
-          "type": "number"
-        }
+      "a": {
+        "type": "number"
+      },
+      "b": {
+        "type": "number"
       }
     },
     "returns": {
@@ -39,100 +15,10 @@
     }
   },
   {
-    "name": "fn_filter_words_by_length",
-    "description": "Filter a list of words, keeping only those that meet the minimum character threshold.",
+    "name": "fn_greet",
+    "description": "Generate a greeting message for a person by name.",
     "parameters": {
-      "word_list": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "min_length": {
-        "type": "integer"
-      }
-    },
-    "returns": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    }
-  },
-  {
-    "name": "fn_repeat_message",
-    "description": "Repeat a string a specific number of times.",
-    "parameters": {
-      "message": {
-        "type": "string"
-      },
-      "count": {
-        "type": "integer"
-      }
-    },
-    "returns": {
-      "type": "string"
-    }
-  },
-  {
-    "name": "fn_clear_cache",
-    "description": "Reset system cache. Accepts an explicit null parameter to confirm the operation.",
-    "parameters": {
-      "force_reset": {
-        "type": "null"
-      }
-    },
-    "returns": {
-      "type": "boolean"
-    }
-  },
-  {
-    "name": "fn_generate_lottery_numbers",
-    "description": "Generate an array of unique random integers between a set range.",
-    "parameters": {
-      "quantity": {
-        "type": "integer"
-      },
-      "max_value": {
-        "type": "integer"
-      }
-    },
-    "returns": {
-      "type": "array",
-      "items": {
-        "type": "integer"
-      }
-    }
-  },
-  {
-    "name": "fn_apply_discount",
-    "description": "Apply a percentage discount to a base price and flag whether tax it is tax exempt.",
-    "parameters": {
-      "price": {
-        "type": "number"
-      },
-      "discount_percentage": {
-        "type": "number"
-      },
-      "tax_exempt": {
-        "type": "boolean"
-      }
-    },
-    "returns": {
-      "type": "number"
-    }
-  },
-  {
-    "name": "fn_join_strings",
-    "description": "Concatenate a list of text strings using a custom delimiter.",
-    "parameters": {
-      "segments": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "delimiter": {
+      "name": {
         "type": "string"
       }
     },
@@ -141,18 +27,45 @@
     }
   },
   {
-    "name": "fn_find_max_integer",
-    "description": "Identify and return the highest integer from an array.",
+    "name": "fn_reverse_string",
+    "description": "Reverse a string and return the reversed result.",
     "parameters": {
-      "dataset": {
-        "type": "array",
-        "items": {
-          "type": "integer"
-        }
+      "s": {
+        "type": "string"
       }
     },
     "returns": {
-      "type": "integer"
+      "type": "string"
+    }
+  },
+  {
+    "name": "fn_get_square_root",
+    "description": "Calculate the square root of a number.",
+    "parameters": {
+      "a": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  },
+  {
+    "name": "fn_substitute_string_with_regex",
+    "description": "Replace all occurrences matching a regex pattern in a string.",
+    "parameters": {
+      "source_string": {
+        "type": "string"
+      },
+      "regex": {
+        "type": "string"
+      },
+      "replacement": {
+        "type": "string"
+      }
+    },
+    "returns": {
+      "type": "string"
     }
   }
 ]
