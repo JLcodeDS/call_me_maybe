@@ -1,10 +1,11 @@
-from llm_sdk import Small_LLM_Model  # type: ignore
+from llm_sdk import Small_LLM_Model  # type:ignore
 import numpy as np
 from typing import Any, cast
 from .data_models import TokenTrie, DynamicParameterModel
 from .data_preparation import PrepareFnData
 from .fsms import PydanticFSM
 from pydantic import ValidationError
+import json
 
 
 class RunModel:
@@ -16,13 +17,14 @@ class RunModel:
                  ):
         self.model = model
         self.trie = trie
-        self.prompt = prompt.replace('\\"', '"').replace('"', '\\"')
+        self.prompt = prompt.replace("\\", r"\\").replace(r'"', '\\"')
+        print(self.prompt)
         self.clean_fn_data = clean_fn_data
         self.token_cache = token_cache
         self.dynamic_models = dynamic_params
         self.parameters: dict[str, Any] = {}
 
-    def run(self) -> dict[str, Any]:
+    def run(self) -> dict[str, Any] | Any:
         print("Finding function...", flush=True)
         self.find_fn_name()
         print("\nFinding parameters...", flush=True)
@@ -33,14 +35,14 @@ class RunModel:
             valid = self.dynamic_models.fn_models[
                 self.function_name].model_validate_json(output)
             return valid.model_dump()
-        except ValidationError as e:
-            print(f"Error for \n{output}")
-            raise e
+        except ValidationError:
+            return json.loads(output)
 
     def find_fn_name(self) -> None:
         fn_prompt = self.get_wrapped_prompt()
         self.response_id = len(fn_prompt)
-        fn_prompt += '{"prompt": "' + self.prompt + '", "name": "'
+        fn_prompt += ('{"prompt": "' + self.prompt +
+                      '", "name": "')
         encoded_prompt = self.model.encode(fn_prompt)[0].tolist()
         encoded_fn: list[int] = []
         while True:

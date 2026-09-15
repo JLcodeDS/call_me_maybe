@@ -34,14 +34,14 @@ class LoadData:
             with open(self.dict_params["functions_definition"]) as funcs:
                 self.function_data = json.load(funcs)
         except Exception as e:
-            raise Exception(f"Error when loading file {
-                self.dict_params["input"]}: {e}")
+            raise Exception("Error when loading file " +
+                            f"{self.dict_params['input']}: {e}")
         try:
             with open(self.dict_params["input"]) as prompts:
                 self.prompt_data = json.load(prompts)
         except Exception as e:
-            raise Exception(f"Error when loading file {
-                self.dict_params["input"]}: {e}")
+            raise Exception("Error when loading file " +
+                            f"{self.dict_params['input']}: {e}")
 
     def _validate_data(self) -> None:
         errors_lst: list[str] = []
