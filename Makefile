@@ -1,4 +1,6 @@
 PYTHON = uv run python
+export UV_CACHE_DIR := $(CURDIR)/.uv_cache
+export HF_HOME      := $(CURDIR)/.hf_cache
 
 all: install run
 

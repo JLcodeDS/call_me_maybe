@@ -49,3 +49,6 @@ env/
 # OS specifics
 .DS_Store
 Thumbs.db
+.mypy_cache
+.uv_cache
+.hf_cache
