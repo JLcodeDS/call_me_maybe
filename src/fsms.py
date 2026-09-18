@@ -1,9 +1,41 @@
+"""Finite State Machine (FSM) for Pydantic-driven structural token validation.
+
+This module implements a grammar-based parsing state machine that evaluates
+partial SON response strings against a Pydantic schema to enforce structured
+JSON token generation at runtime.
+"""
+
 from pydantic import BaseModel
 
 
 class PydanticFSM:
+    """Finite State Machine to govern structured JSON output matching a
+    Pydantic model.
+
+    Tracks JSON parsing states (inside strings, scanning object keys, waiting
+    for colons, processing array brackets) to filter next-token options via a
+    pre-compiled token vocabulary cache.
+
+    Attributes:
+        param_model: The Pydantic model type used to extract validation
+            boundaries.
+        param_json: The complete raw dictionary representing the model's
+            JSON schema.
+        token_cache: A dictionary tracking pre-filtered token ID sets indexed
+            by syntactic category names.
+        properties: The specific property definitions mapping schema keys to
+            expected types.
+    """
+
     def __init__(self, param_model: type[BaseModel],
                  token_cache: dict[str, set[int]]):
+        """Initializes PydanticFSM and extracts properties from the Pydantic
+        schema.
+
+        Args:
+            param_model: The reference Pydantic validation structure class.
+            token_cache: Categorized sets of integer vocabulary tokens.
+        """
         self.param_model = param_model
         self.param_json = param_model.model_json_schema()
         self.token_cache = token_cache
@@ -12,7 +44,24 @@ class PydanticFSM:
 
     def get_allowed_tokens(self, response_buffer: str,
                            entire_response_buffer: str) -> set[int] | None:
+        """Determines valid token ID groups based on the current JSON text
+        parsing state.
 
+        Parses the sequential layout of the current buffer to detect character
+        boundaries, parameter schemas, and JSON syntax blocks, matching them
+        to Allowed Vocabulary masks.
+
+        Args:
+            response_buffer: The current text block being parsed for the active
+                parameter segment.
+            entire_response_buffer: The complete accumulated generation context
+                from the start.
+
+        Returns:
+            A set of integer token IDs allowed to follow the current buffer
+            layout, or None if the entire JSON structure is fully closed and
+            valid.
+        """
         if self.has_closed_brackets(
                 entire_response_buffer) and entire_response_buffer.strip(
                     ).endswith("}"):
@@ -113,6 +162,20 @@ class PydanticFSM:
 
     @staticmethod
     def has_closed_brackets(s: str) -> bool:
+        """Validates if all braces and brackets within a string are correctly
+        paired and closed.
+
+        Processes characters sequentially while respecting backslash-escapes
+        and raw literal string boundaries to ignore syntax indicators embedded
+        within JSON values.
+
+        Args:
+            s: The full text string to evaluate.
+
+        Returns:
+            True if all opened characters ('{', '[', '(') match their
+            respective closing markers, False otherwise.
+        """
         if not s:
             return False
         current_stack = []

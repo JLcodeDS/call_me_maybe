@@ -1,3 +1,11 @@
+"""Main orchestration module for the LLM inference pipeline.
+
+This script coordinates loading input data, preparing
+parameters, generating the token cache, and executing
+prompts against a small language model (Small_LLM_Model)
+to produce and save structured function calls.
+"""
+
 from .load_input import LoadData
 from .data_models import DynamicParameterModel
 from .generate_output import RunModel
@@ -9,6 +17,19 @@ import os
 
 
 def main() -> None:
+    """Executes the complete data processing and prompt evaluation workflow.
+
+    The function performs the following steps:
+    1. Initializes components and loads input configuration data.
+    2. Cleans function definitions and builds dynamic parameter models.
+    3. Constructs prefix trees (Tries) and indexes the vocabulary tokens.
+    4. Evaluates each input prompt sequentially through the LLM.
+    5. Exports the compiled function-call outputs to the designated JSON file.
+
+    Raises:
+        Exception: If any error occurs during the execution
+        of the data loading, model inference, or file writing processes.
+    """
     data = LoadData()
     data.load_data()
     model = Small_LLM_Model()
